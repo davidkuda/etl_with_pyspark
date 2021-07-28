@@ -1,0 +1,12 @@
+version: "3"
+services:
+  spark_notebook:
+    image: jupyter/pyspark-notebook:latest
+    ports:
+      - 8888:8888
+    volumes:
+      - ./src/:/home/jovyan/src/
+      - ./data/:/home/jovyan/data/
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+
