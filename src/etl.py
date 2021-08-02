@@ -2,6 +2,7 @@ import configparser
 from datetime import datetime
 import os
 
+import boto3
 import pyspark.sql.session
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf, col
@@ -27,6 +28,25 @@ def create_spark_session():
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:2.7.0") \
         .getOrCreate()
     return spark
+
+
+def create_bucket_if_not_exists(bucket_name: str):
+    config = get_config()
+    aws_access_key_id = config['AWS']['aws_access_key_id']
+    aws_secret_access_key = config['AWS']['aws_secret_access_key']
+    region_name = 'us-east-1'
+
+    aws_session = boto3.Session(aws_access_key_id=aws_access_key_id,
+                                aws_secret_access_key=aws_secret_access_key,
+                                region_name=region_name)
+
+    s3 = aws_session.client('s3')
+
+    existing_buckets = [bucket['Name'] for bucket in s3.list_buckets()['Buckets']]
+
+    if bucket_name not in existing_buckets:
+        s3.create_bucket(Bucket=bucket_name)
+        # TODO: Catch errors such as invalid bucket name, invalid characters or alike.
 
 
 class SparkETL:
@@ -114,13 +134,12 @@ class SparkETL:
 
         # extract columns for users table
         users_table = (df
-                       .select(
-            col("userId").alias("user_id"),
-            col("firstName").alias("first_name"),
-            col("lastName").alias("last_name"),
-            col("gender"),
-            col("level"),
-            col("ts"))
+                       .select(col("userId").alias("user_id"),
+                               col("firstName").alias("first_name"),
+                               col("lastName").alias("last_name"),
+                               col("gender"),
+                               col("level"),
+                               col("ts"))
                        .orderBy(col("user_id"),
                                 col("ts").desc()))
 
@@ -180,10 +199,13 @@ class SparkETL:
 
 def main():
     spark = create_spark_session()
-    input_data = "s3a://udacity-dend/"
-    output_data = "s3a://"
+    src_s3_path = "s3a://udacity-dend/"
+    dst_bucket_name = "spark-data-lake-etl"
+    dst_s3_path = f"s3a://{dst_bucket_name}"
 
-    spark_etl = SparkETL(spark, input_data, output_data)
+    create_bucket_if_not_exists(dst_bucket_name)
+
+    spark_etl = SparkETL(spark, src_s3_path, dst_s3_path)
     spark_etl.process_song_data()
     spark_etl.process_log_data()
     spark_etl.create_songplays_table()
