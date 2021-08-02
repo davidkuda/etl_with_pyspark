@@ -17,9 +17,10 @@ def get_config(path: str = 'dl.cfg'):
     return config
 
 
-def set_env_vars(config):
-    os.environ['AWS_ACCESS_KEY_ID'] = config['AWS_ACCESS_KEY_ID']
-    os.environ['AWS_SECRET_ACCESS_KEY'] = config['AWS_SECRET_ACCESS_KEY']
+def set_env_vars():
+    config = get_config()
+    os.environ['AWS_ACCESS_KEY_ID'] = config['AWS']['AWS_ACCESS_KEY_ID']
+    os.environ['AWS_SECRET_ACCESS_KEY'] = config['AWS']['AWS_SECRET_ACCESS_KEY']
 
 
 def create_spark_session():
@@ -198,6 +199,7 @@ class SparkETL:
 
 
 def main():
+    set_env_vars()
     spark = create_spark_session()
     src_s3_path = "s3a://udacity-dend/"
     dst_bucket_name = "spark-data-lake-etl"
